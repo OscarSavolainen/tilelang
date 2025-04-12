@@ -166,7 +166,7 @@ cd tilelang
 
 ```bash
 bash install_cuda.sh
-# or bash `install_amd.sh` if you want to enable ROCm runtime
+# or bash `install_rocm.sh` if you want to enable ROCm runtime
 ```
 
 ## Install with Nightly Version
