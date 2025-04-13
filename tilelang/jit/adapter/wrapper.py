@@ -126,13 +126,16 @@ class TLCUDASourceWrapper(object):
                  target: Target,
                  device_mod: Optional[IRModule] = None,
                  host_mod: Optional[IRModule] = None,
-                 pass_configs: Optional[Dict[str, Any]] = None):
+                 pass_configs: Optional[Dict[str, Any]] = None,
+                 type_mapping_override: Optional[Dict[str, str]] = {},
+        ):
         self.mod = scheduled_ir_module
         self.target = target
         self.source = source
         self.pass_configs = pass_configs
         self.device_mod = device_mod
         self.host_mod = host_mod
+        self._TYPE_MAP.update(type_mapping_override)
         self.function_names: Optional[str] = None
         self.dynamic_smem_buf: Optional[int] = None
         self.block_info: Union[List[int], Dict] = [1, 1, 1]
@@ -423,6 +426,9 @@ class TLHIPSourceWrapper(TLCUDASourceWrapper):
     """
     A wrapper class for the TileLang HIP backend.
     """
+    _HIP_TYPE_MAP = {
+        # "bfloat16": "hip_bfloat16"
+    }
 
     def __init__(self,
                  scheduled_ir_module: IRModule,
@@ -430,8 +436,9 @@ class TLHIPSourceWrapper(TLCUDASourceWrapper):
                  target: Target,
                  device_mod: Optional[IRModule] = None,
                  host_mod: Optional[IRModule] = None,
-                 pass_configs: Optional[Dict[str, Any]] = None):
-        super().__init__(scheduled_ir_module, source, target, device_mod, host_mod, pass_configs)
+                 pass_configs: Optional[Dict[str, Any]] = None,
+                 type_mapping_override: Dict[str, str] = _HIP_TYPE_MAP):
+        super().__init__(scheduled_ir_module, source, target, device_mod, host_mod, pass_configs, type_mapping_override=self._HIP_TYPE_MAP)
 
     def get_init_func(self):
         # Initialize an empty string for the CUDA function call

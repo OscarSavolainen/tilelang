@@ -74,7 +74,7 @@ echo "Configuring TVM build with LLVM and CUDA paths..."
 echo "set(USE_LLVM llvm-config-16)" >> config.cmake && echo "set(USE_ROCM /opt/rocm)" >> config.cmake
 
 echo "Running CMake for TileLang..."
-cmake ..
+/usr/bin/cmake ..
 if [ $? -ne 0 ]; then
     echo "Error: CMake configuration failed."
     exit 1
