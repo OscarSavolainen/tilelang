@@ -170,8 +170,8 @@ public:
             *(((float32x4 *)C_local) + ((i * warp_cols) + j)) =
                 __builtin_amdgcn_mfma_f32_16x16x16bf16_1k(
                 // __builtin_amdgcn_mfma_f32_16x16x16f16(
-                    *(((bfloat16_vec4 *)B_local) + j * kPack + kp),
-                    *(((bfloat16_vec4 *)A_local) + i * kPack + kp),
+                    *(((float16x4 *)B_local) + j * kPack + kp),
+                    *(((float16x4 *)A_local) + i * kPack + kp),
                     *(((float32x4 *)C_local) + ((i * warp_cols) + j)), 0, 0, 0);
           }
         }
@@ -226,8 +226,8 @@ public:
           for (int j = 0; j < warp_cols; ++j) {
             *(((float32x4 *)C_local) + ((i * warp_cols) + j)) =
                 __builtin_amdgcn_mfma_f32_16x16x16bf16_1k(
-                    *(((bfloat16_vec4 *)B_local) + j * kPack + kp),
-                    *(((bfloat16_vec4 *)A_local) + ki * warp_rows * kPack +
+                    *(((float16x4 *)B_local) + j * kPack + kp),
+                    *(((float16x4 *)A_local) + ki * warp_rows * kPack +
                       i * kPack + kp),
                     *(((float32x4 *)C_local) + ((i * warp_cols) + j)), 0, 0, 0);
           }

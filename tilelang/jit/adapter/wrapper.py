@@ -680,5 +680,4 @@ class TLWrapper(BaseWrapper):
             device_mod=self.device_mod,
             host_mod=self.host_mod,
             pass_configs=self.pass_configs)
-        import ipdb; ipdb.set_trace()
         return wrapper.lib_code

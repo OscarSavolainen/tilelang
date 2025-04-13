@@ -75,5 +75,3 @@ TL_DEVICE unsigned __pack_half2(const half_t x, const half_t y) {
   unsigned v1 = *((unsigned short *)&y);
   return (v1 << 16) | v0;
 }
-
-using bfloat16_vec4 = __attribute__((__vector_size__(4 * sizeof(__hip_bfloat16)))) __hip_bfloat16;

@@ -82,7 +82,6 @@ print(c)
 ref_c = a @ b
 
 # Validate correctness
-import ipdb; ipdb.set_trace()
 torch.testing.assert_close(c, ref_c, rtol=1e-2, atol=1e-2)
 print("Kernel output matches PyTorch reference.")
 
