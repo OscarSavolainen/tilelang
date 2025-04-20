@@ -9,6 +9,10 @@ import tilelang.language as T
 from tilelang.intrinsics import (
     make_mma_swizzle_layout as make_swizzle_layout,)  # noqa: F401
 
+import torch
+# torch_dtype=torch.bfloat16
+dtype="e4m3_float8"
+torch_dtype=torch.float8_e4m3fn
 
 def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="float"):
     # add decorator @tilelang.jit if you want to return a torch function
@@ -58,7 +62,7 @@ def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="flo
 
 
 # 1. Define the kernel (matmul) and compile/lower it into an executable module
-func = matmul(1024, 1024, 1024, 128, 128, 32)
+func = matmul(1024, 1024, 1024, 128, 128, 32, dtype=dtype)
 
 # 2. Compile the kernel into a torch function
 # out_idx specifies the index of the output buffer in the argument list
@@ -68,11 +72,9 @@ jit_kernel = tilelang.compile(func, out_idx=[2], target="hip", execution_backend
 # jit_kernel = tilelang.compile(func, out_idx=[2], target="cuda", execution_backend="dlpack")
 
 # 3. Test the kernel in Python with PyTorch data
-import torch
-
 # Create random input tensors on the GPU
-a = torch.randn(1024, 1024, device="cuda", dtype=torch.float16)
-b = torch.randn(1024, 1024, device="cuda", dtype=torch.float16)
+a = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
+b = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
 
 # Run the kernel through the Profiler
 c = jit_kernel(a, b)

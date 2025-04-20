@@ -34,6 +34,11 @@
 #define hpow __ocml_pown_f16
 #define hsqrt __ocml_sqrt_f16
 
+// Do we use fnuz or OCP for fp8
+#ifndef USE_FP8_FNUZ
+#define USE_FP8_FNUZ true
+#endif
+
 using float16_t = _Float16;
 using float16x2 =
     __attribute__((__vector_size__(2 * sizeof(float16_t)))) float16_t;
@@ -68,25 +73,66 @@ typedef
     __attribute__((__vector_size__(4 * sizeof(short)))) short bfloat16x4_vec;
 
 // TODO: add fp8 and 4xfp8 packing
-using float8_t = __hip_fp8_e4m3;
-struct float8x4 {
-  float8_t data[4];
-};
-struct float8x8 {
-  float8_t data[8];
-};
+
+// OCP FP8 currently not supported on MI300s: 
+// https://rocm.docs.amd.com/projects/HIP/en/docs-6.4.0/reference/low_fp_types.html 
+#if USE_FP8_FNUZ
+  // Fp8_e4m3_fnuz
+  using fp8_e4_t = __hip_fp8_e4m3_fnuz;
+  using fp8_e4_2_t = __hip_fp8x2_e4m3_fnuz;
+  using fp8_e4_4_t = __hip_fp8x4_e4m3_fnuz;
+  struct fp8_e4_8_t {
+    fp8_e4_t data[8];
+  };
+  struct fp8_e4_16_t {
+    fp8_e4_t data[16];
+  };
+
+  // Fp8_e5m3_fnuz
+  using fp8_e5_t = __hip_fp8_e5m2_fnuz;
+  using fp8_e5_2_t = __hip_fp8x2_e5m2_fnuz;
+  using fp8_e5_4_t = __hip_fp8x4_e5m2_fnuz;
+  struct fp8_e5_8_t {
+    fp8_e5_t data[8];
+  };
+  struct fp8_e5_16_t {
+    fp8_e5_t data[16];
+  };
+#else
+  // USE OCP FP8
+  using fp8_e4_t = __hip_fp8_e4m3;
+  using fp8_e4_2_t = __hip_fp8x2_e4m3;
+  using fp8_e4_4_t = __hip_fp8x4_e4m3;
+  struct fp8_e4_8_t {
+    fp8_e4_t data[8];
+  };
+  struct fp8_e4_16_t {
+    fp8_e4_t data[16];
+  };
+
+  // Fp8_e5m2
+  using fp8_e5_t = __hip_fp8_e5m2;
+  using fp8_e5_2_t = __hip_fp8x2_e5m2;
+  using fp8_e5_4_t = __hip_fp8x4_e5m2;
+  struct fp8_e5_8_t {
+    fp8_e5_t data[8];
+  };
+  struct fp8_e5_16_t {
+    fp8_e5_t data[16];
+  };
+#endif
 
 typedef
     __attribute__((__vector_size__(8 * sizeof(int8_t)))) int8_t float8x8_vec;
 
 
-TL_DEVICE unsigned __pack_float4(const fp8_t w, const fp8_t x, const fp8_t y, const fp8_t z) {
-  unsigned v0 = *((unsigned int *)&w);
-  unsigned v1 = *((unsigned int *)&x);
-  unsigned v2 = *((unsigned int *)&y);
-  unsigned v3 = *((unsigned int *)&z);
-  return (v1 << 24) | (v1 << 16) | (v1 << 8) | v0;
-}
+// TL_DEVICE unsigned __pack_float_e4(const fp8_e4_t w, const fp8_e4_t x, const fp8_e4_t y, const fp8_e4_t z) {
+//   unsigned v0 = *((unsigned int *)&w);
+//   unsigned v1 = *((unsigned int *)&x);
+//   unsigned v2 = *((unsigned int *)&y);
+//   unsigned v3 = *((unsigned int *)&z);
+//   return (v1 << 24) | (v1 << 16) | (v1 << 8) | v0;
+// }
 
 using int32x4 = __attribute__((__vector_size__(4 * sizeof(int)))) int;
 using float32x4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;

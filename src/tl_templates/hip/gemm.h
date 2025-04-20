@@ -26,32 +26,33 @@ template <> struct MfmaTraits<__hip_bfloat16> {
                                 const __hip_bfloat16 *a, AccType *c) {
     bfloat16x4_vec b_vec, a_vec;
 
-    // Reinterpret the pointers
+    // reinterpret the pointers
     short *b_short = reinterpret_cast<short *>(const_cast<__hip_bfloat16 *>(b));
     short *a_short = reinterpret_cast<short *>(const_cast<__hip_bfloat16 *>(a));
 
-    // Copy the data
+    // copy the data
     for (int i = 0; i < 4; ++i) {
       b_vec[i] = b_short[i];
       a_vec[i] = a_short[i];
     }
 
-    // Call the intrinsic and store the result directly to c
+    // call the intrinsic and store the result directly to c
     *c = __builtin_amdgcn_mfma_f32_16x16x16bf16_1k(b_vec, a_vec, *c, 0, 0, 0);
   }
 };
 
 // TODO: add fp8 instrinsic.
-// Specialization for float8_t
-template <> struct MfmaTraits<float8_t> {
+// Helper template for fp8 types
+template <typename FP8Type>
+struct FP8MfmaHelper {
   template <typename AccType>
-  static TL_DEVICE void mfma_op(const float8_t *b,
-                                const float8_t *a, AccType *c) {
+  static TL_DEVICE void mfma_op(const FP8Type *b,
+                               const FP8Type *a, AccType *c) {
     float8x8_vec b_vec, a_vec;
 
     // Reinterpret the pointers as int8
-    int8_t *b_int8 = reinterpret_cast<int8_t *>(const_cast<float8_t *>(b));
-    int8_t *a_int8 = reinterpret_cast<int8_t *>(const_cast<float8_t *>(a));
+    int8_t *b_int8 = reinterpret_cast<int8_t *>(const_cast<FP8Type *>(b));
+    int8_t *a_int8 = reinterpret_cast<int8_t *>(const_cast<FP8Type *>(a));
 
     // Copy the data
     for (int i = 0; i < 8; ++i) {
@@ -61,6 +62,24 @@ template <> struct MfmaTraits<float8_t> {
 
     // Call the intrinsic and store the result directly to c
     *c = __builtin_amdgcn_mfma_f32_16x16x32_fp8_fp8(b_vec, a_vec, *c, 0, 0, 0);
+  }
+};
+
+// Specialization for fp8_e4_t that uses the helper
+template <> struct MfmaTraits<fp8_e4_t> {
+  template <typename AccType>
+  static TL_DEVICE void mfma_op(const fp8_e4_t *b,
+                                const fp8_e4_t *a, AccType *c) {
+    FP8MfmaHelper<fp8_e4_t>::mfma_op(b, a, c);
+  }
+};
+
+// Specialization for fp8_e5_t that uses the same helper
+template <> struct MfmaTraits<fp8_e5_t> {
+  template <typename AccType>
+  static TL_DEVICE void mfma_op(const fp8_e5_t *b,
+                                const fp8_e5_t *a, AccType *c) {
+    FP8MfmaHelper<fp8_e5_t>::mfma_op(b, a, c);
   }
 };
 
@@ -77,7 +96,12 @@ struct TypeTraits {
     static constexpr int value = 16;
 };
 template <>
-struct TypeTraits<float8_t> {
+struct TypeTraits<fp8_e4_t> {
+    // fp8 uses a micro_size_k default value of 32, to match the 16x16x32 MFMA intrinsic
+    static constexpr int value = 32;
+};
+template <>
+struct TypeTraits<fp8_e5_t> {
     // fp8 uses a micro_size_k default value of 32, to match the 16x16x32 MFMA intrinsic
     static constexpr int value = 32;
 };
