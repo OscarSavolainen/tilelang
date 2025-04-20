@@ -868,6 +868,11 @@ void CodeGenTileLangCUDA::VisitExpr_(const CallNode *op, std::ostream &os) {
   } else if (op->op.same_as(tl::PackB16Op())) {
     os << "__pack_half2(" << this->PrintExpr(op->args[0]) << ", "
        << this->PrintExpr(op->args[1]) << ")";
+  } else if (op->op.same_as(tl::PackF8Op())) {
+    os << "__pack_float4(" << this->PrintExpr(op->args[0]) << ", "
+       << this->PrintExpr(op->args[1])  << ", "
+       << this->PrintExpr(op->args[2])  << ", "
+       << this->PrintExpr(op->args[3])  << ")";
   } else if (op->op.same_as(builtin::tvm_fill_fragment())) {
     need_mma_h_ = true;
     ICHECK_EQ(op->args.size(), 6U);

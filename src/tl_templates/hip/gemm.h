@@ -42,10 +42,45 @@ template <> struct MfmaTraits<__hip_bfloat16> {
 };
 
 // TODO: add fp8 instrinsic.
+// Specialization for float8_t
+template <> struct MfmaTraits<float8_t> {
+  template <typename AccType>
+  static TL_DEVICE void mfma_op(const float8_t *b,
+                                const float8_t *a, AccType *c) {
+    float8x8_vec b_vec, a_vec;
+
+    // Reinterpret the pointers as int8
+    int8_t *b_int8 = reinterpret_cast<int8_t *>(const_cast<float8_t *>(b));
+    int8_t *a_int8 = reinterpret_cast<int8_t *>(const_cast<float8_t *>(a));
+
+    // Copy the data
+    for (int i = 0; i < 8; ++i) {
+      b_vec[i] = b_int8[i];
+      a_vec[i] = a_int8[i];
+    }
+
+    // Call the intrinsic and store the result directly to c
+    *c = __builtin_amdgcn_mfma_f32_16x16x32_fp8_fp8(b_vec, a_vec, *c, 0, 0, 0);
+  }
+};
+
 // NOTE: The instrinsics have different dims to fp16, e.g.
 // 16x16x32 or 32x32x16, so we need to adjust micro_size_{x,y,z} based on dtype, maybe kPack
 // needs to be set different upstream as well. Fp8 matmuls are sometimes done with B transposed
 // so I presume this will be ok if we set TransposeB true.
+
+
+// Default template for various dtype traits
+template <typename T>
+struct TypeTraits {
+    // micro_size_k default value is 16, to match the fp16/bf16 MFMA instrinsics K dimension
+    static constexpr int value = 16;
+};
+template <>
+struct TypeTraits<float8_t> {
+    // fp8 uses a micro_size_k default value of 32, to match the 16x16x32 MFMA intrinsic
+    static constexpr int value = 32;
+};
 
 // ref to bitblas/tl/mfma_macro_generator.py::kPack
 template <int M, int N, int K, int num_warp_m, int num_warp_n, bool TransposeA,
@@ -57,7 +92,7 @@ public:
 
   static constexpr int micro_size_x = 16;
   static constexpr int micro_size_y = 16;
-  static constexpr int micro_size_k = 16;
+  static constexpr int micro_size_k = TypeTraits<A_type>::micro_size_k;
   // TODO: adjust based on if dtype is fp8, and our desired instrinsic (32x32x16 vs 16x16x32)
 
   // This part comes from the Codegen
@@ -221,9 +256,14 @@ public:
             auto a_ptr = ((A_type *)A_local) + (i * kPack + kp) * 4;
             // TODO: adjust the 4 above to generalise to fp8, as the intrinsic expects 8 bytes
             // Or, do we just double kPack? Or do something based of off nb of bits in dtype?
+            // Actually, I think we may be ok, as we're just pointing to locations in memory, based
+            // off of the output dtype/grid. Ideally, the intrinsic will accept us feeding in the 
+            // same grid even if it maps to different amoiunt of elements, it'll internally map it 
+            // to where it needs to go.
+            // Ideally, the only consequence of fp8 is we cut the number of inner_k loops in half.
 
-            // Use the trait to select the correct MFMA instruction, either fp16
-            // or bf16 currently
+            // Use the trait to select the correct MFMA instruction, either fp16,
+            // bf16 of fp8 currently
             MfmaTraits<A_type>::mfma_op(b_ptr, a_ptr, acc_ptr);
           }
         }
@@ -285,8 +325,8 @@ public:
             auto a_ptr = ((A_type *)A_local) +
                          (ki * warp_rows * kPack + i * kPack + kp) * 4;
 
-            // Use the trait to select the correct MFMA instruction, either fp16
-            // or bf16 currently
+            // Use the trait to select the correct MFMA instruction, either fp16,
+            // bf16 of fp8 currently
             MfmaTraits<A_type>::mfma_op(b_ptr, a_ptr, acc_ptr);
           }
         }

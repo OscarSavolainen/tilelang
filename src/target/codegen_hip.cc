@@ -237,6 +237,8 @@ void CodeGenTileLangHIP::PrintType(DataType t, std::ostream &os) { // NOLINT(*)
                                   // unsigned short
     } else if (lanes == 4) {
       os << "unsigned int"; // __nv_fp8x4_storage_t is an alias of unsigned int
+    } else if (lanes == 8) {
+      os << "unsigned double"; // There isn't an nv alias for 8 packed fp8 values
     } else {
       fail = true;
     }
@@ -447,8 +449,17 @@ void CodeGenTileLangHIP::PrintVecElemLoad(const std::string &vec, DataType t,
   ICHECK(i >= 0 && i < (t.bits() == 8                        ? 16
                         : (t.bits() == 16 || t.bits() == 32) ? 8
                                                              : 4));
-  if (t.bits() == 8 && (t.is_int() || t.is_uint())) {
-    std::string type_name = t.is_int() ? "char" : "unsigned char";
+  // TODO: add fp8
+  if (t.bits() == 8 && (t.is_int() || t.is_uint() || t.is_float())) {
+    std::string type_name;
+    if (t.is_int()) {
+      type_name = "char";
+    } else if (t.is_uint()) {
+      type_name = "unsigned char";
+    } else if (t.is_float()) {
+      type_name = "float8_t";
+    }
+    
     if (t.lanes() == 2 || t.lanes() == 3) {
       os << vec << "." << access[i % t.lanes()];
     } else {
@@ -461,7 +472,6 @@ void CodeGenTileLangHIP::PrintVecElemLoad(const std::string &vec, DataType t,
   } else if (t.is_bfloat16()) {
     os << "((nv_bfloat162*)(&(" << vec << "." << access[i / 2] << ")))->"
        << access[i % 2];
-    // TODO: add fp8
   } else if (t.lanes() > 4 && t.lanes() <= 8) {
     std::string type_name;
     if (t.bits() == 16) {
@@ -494,7 +504,8 @@ void CodeGenTileLangHIP::PrintVecElemStore(const std::string &vec, DataType t,
   ICHECK(i >= 0 && i < (t.bits() == 8                        ? 16
                         : (t.bits() == 16 || t.bits() == 32) ? 8
                                                              : 4));
-  if (t.bits() == 8 && (t.is_int() || t.is_uint())) {
+  // TODO: add fp8
+  if (t.bits() == 8 && (t.is_int() || t.is_uint() || t.is_float8())) {
     if (t.lanes() == 2 || t.lanes() == 3) {
       stream << vec << '.' << access[i % t.lanes()] << "="
              << "(" << value << ");\n";
@@ -513,7 +524,6 @@ void CodeGenTileLangHIP::PrintVecElemStore(const std::string &vec, DataType t,
   } else if (t.is_bfloat16()) {
     stream << "((bfloat16_t*)(&(" << vec << "." << access[i / 2] << ")))["
            << (i % 2) << "] = " << value << ";\n";
-  // TODO: add fp8
   } else if (t.lanes() > 4 && t.lanes() <= 8) {
     std::string type_name;
     if (t.bits() == 16) {
@@ -825,6 +835,11 @@ void CodeGenTileLangHIP::VisitExpr_(const CallNode *op, std::ostream &os) {
   } else if (op->op.same_as(tl::PackB16Op())) {
     os << "__pack_half2(" << this->PrintExpr(op->args[0]) << ", "
        << this->PrintExpr(op->args[1]) << ")";
+  } else if (op->op.same_as(tl::PackF8Op())) {
+    os << "__pack_float4(" << this->PrintExpr(op->args[0]) << ", "
+       << this->PrintExpr(op->args[1])  << ", "
+       << this->PrintExpr(op->args[2])  << ", "
+       << this->PrintExpr(op->args[3])  << ")";
   } else if (op->op.same_as(builtin::tvm_fill_fragment())) {
     need_mma_h_ = true;
     ICHECK_EQ(op->args.size(), 6U);
@@ -912,21 +927,23 @@ void CodeGenTileLangHIP::VisitExpr_(const CallNode *op, std::ostream &os) {
     std::string b_bias = this->PrintExpr(op->args[9]);
     std::string c_ref = this->PrintExpr(op->args[10]);
     std::string c_bias = this->PrintExpr(op->args[11]);
-    // TODO check for fp8 problem, may have to transpose B
     ICHECK(A_layout == "row" || B_layout == "row")
         << "Matrix core only support row major";
     // map for dtype -> float32x4 -> float4
-    // // TODO: add fp8
+    // TODO: add fp8
     std::unordered_map<std::string, std::string> dtype_map = {
         {"int8", "char"},
         {"int32", "int"},
         {"int8x4", "int32_t"},
         {"int32x4", "int32x4"},
+        {"e4m3_float8", "float8_t"},
         {"float16", "half"},
         {"float32", "float"},
         {"float64", "double"},
         {"float16x4", "float16x4"},
         {"bfloat16x4", "bfloat16x4"},
+        {"e4m3_float8x4", "float8x4"},
+        {"e4m3_float8x8", "float8x8"},
         {"float32x4", "float32x4"},
         {"float32x16", "float32x16"}};
     std::string call_mfma_code = R"({
@@ -1074,7 +1091,20 @@ void CodeGenTileLangHIP::VisitExpr_(const BroadcastNode *op,
     return;
   }
 
-  // TODO: add fp8, e.g. fp8x4, even fp8x8?
+  // TODO: add fp8, e.g. fp8x4
+  if (op->dtype.is_float8()) {
+    std::string v = PrintExpr(op->value);
+    os << "make_";
+    PrintType(op->dtype, os);
+    os << '(';
+    for (int i = 0; i < lanes / 4; ++i) {
+      if (i != 0)
+        os << ", ";
+      os << "__pack_nv_float84(" << v << ", " << v << ", " << v << ", " << v << ")";
+    }
+    os << ')';
+    return;
+  }
 
   if (op->dtype.is_float() && op->dtype.bits() == 32 &&
       op->dtype.lanes() == 8) {
@@ -1155,7 +1185,7 @@ inline void PrintConst(const FloatImmNode *op, std::ostream &os,
     os << '(' << std::scientific << op->value << 'f' << ')';
     return;
   }
-  // TODO: add fp8
+  // TODO: add fp8?
 
   // Type code is kFloat
   switch (op->dtype.bits()) {
@@ -1265,6 +1295,33 @@ void CodeGenTileLangHIP::PrintVecElemLoadExpr(DataType t, int i,
     return;
   }
   // TODO: add fp8, create packing function for x4
+  if (t.is_float8()) {
+    if (i == 0) {
+      os << "make_";
+      PrintType(t, os);
+      os << '(';
+    }
+    
+    if (i % 4 == 0) {
+      // Start a new pack of 4 fp8 values
+      os << "__pack_nv_float84(" << value;
+    } else if (i % 4 == 1 || i % 4 == 2) {
+      // Middle elements in the pack
+      os << "," << value;
+    } else { // i % 4 == 3
+      // Last element in the pack
+      os << "," << value << ")";
+      
+      // Add comma if this isn't the final pack
+      if (i != t.lanes() - 1) {
+        os << ",";
+      } else {
+        // Close the make_TYPE() expression if this is the final pack
+        os << ")";
+      }
+    }
+    return;
+  }
 
   if (i == 0) {
     os << "make_";

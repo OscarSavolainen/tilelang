@@ -5,6 +5,7 @@
 #include <ck_tile/core.hpp>
 #include <hip/hip_bf16.h>
 #include <hip/hip_fp16.h>
+#include <hip/hip_fp8.h>
 #include <hip/hip_runtime.h>
 #include <rocwmma/rocwmma.hpp>
 
@@ -67,6 +68,25 @@ typedef
     __attribute__((__vector_size__(4 * sizeof(short)))) short bfloat16x4_vec;
 
 // TODO: add fp8 and 4xfp8 packing
+using float8_t = __hip_fp8_e4m3;
+struct float8x4 {
+  float8_t data[4];
+};
+struct float8x8 {
+  float8_t data[8];
+};
+
+typedef
+    __attribute__((__vector_size__(8 * sizeof(int8_t)))) int8_t float8x8_vec;
+
+
+TL_DEVICE unsigned __pack_float4(const fp8_t w, const fp8_t x, const fp8_t y, const fp8_t z) {
+  unsigned v0 = *((unsigned int *)&w);
+  unsigned v1 = *((unsigned int *)&x);
+  unsigned v2 = *((unsigned int *)&y);
+  unsigned v3 = *((unsigned int *)&z);
+  return (v1 << 24) | (v1 << 16) | (v1 << 8) | v0;
+}
 
 using int32x4 = __attribute__((__vector_size__(4 * sizeof(int)))) int;
 using float32x4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;
