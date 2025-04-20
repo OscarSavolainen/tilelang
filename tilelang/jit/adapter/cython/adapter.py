@@ -134,7 +134,8 @@ with open(cython_wrapper_path, "r") as f:
                     if cython is None:
                         raise Exception("Cython is not installed, please install it first.")
                     os.system(f"{cython} {cython_wrapper_path} --cplus -o {source_path}")
-                    python_include_path = sysconfig.get_path("include")
+                    # python_include_path = sysconfig.get_path("include")
+                    python_include_path = "/root/fixed_python_headers"
                     cc = get_cplus_compiler()
                     command = f"{cc} -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing -I{python_include_path} {source_path} -o {temp_path}"
                     os.system(command)
