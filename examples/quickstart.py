@@ -10,9 +10,10 @@ from tilelang.intrinsics import (
     make_mma_swizzle_layout as make_swizzle_layout,)  # noqa: F401
 
 import torch
-# torch_dtype=torch.bfloat16
-dtype="e4m3_float8"
-torch_dtype=torch.float8_e4m3fn
+torch_dtype=torch.bfloat16
+dtype="bfloat16"
+# dtype="e4m3_float8"
+# torch_dtype=torch.float8_e4m3fn
 
 def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="float"):
     # add decorator @tilelang.jit if you want to return a torch function

@@ -121,16 +121,16 @@ class KernelCache:
         Returns:
             JITKernel: The compiled kernel, either freshly compiled or from cache
         """
-        if not is_cache_enabled():
-            return JITKernel(
-                func,
-                out_idx=out_idx,
-                execution_backend=execution_backend,
-                target=target,
-                target_host=target_host,
-                verbose=verbose,
-                pass_configs=pass_configs,
-            )
+        # if not is_cache_enabled():
+        return JITKernel(
+            func,
+            out_idx=out_idx,
+            execution_backend=execution_backend,
+            target=target,
+            target_host=target_host,
+            verbose=verbose,
+            pass_configs=pass_configs,
+        )
 
         key = self._generate_key(
             func=func,
