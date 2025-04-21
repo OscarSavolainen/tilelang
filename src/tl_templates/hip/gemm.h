@@ -26,19 +26,79 @@ template <> struct MfmaTraits<__hip_bfloat16> {
                                 const __hip_bfloat16 *a, AccType *c) {
     bfloat16x4_vec b_vec, a_vec;
 
-    // Reinterpret the pointers
+    // reinterpret the pointers
     short *b_short = reinterpret_cast<short *>(const_cast<__hip_bfloat16 *>(b));
     short *a_short = reinterpret_cast<short *>(const_cast<__hip_bfloat16 *>(a));
 
-    // Copy the data
+    // copy the data
     for (int i = 0; i < 4; ++i) {
       b_vec[i] = b_short[i];
       a_vec[i] = a_short[i];
     }
 
-    // Call the intrinsic and store the result directly to c
+    // call the intrinsic and store the result directly to c
     *c = __builtin_amdgcn_mfma_f32_16x16x16bf16_1k(b_vec, a_vec, *c, 0, 0, 0);
   }
+};
+
+// TODO: add fp8 instrinsic.
+// Helper template for fp8 types
+template <typename FP8Type>
+struct FP8MfmaHelper {
+  template <typename AccType>
+  static TL_DEVICE void mfma_op(const FP8Type *b,
+                               const FP8Type *a, AccType *c) {
+    // Pack the fp8 values into a long
+    unsigned long packed_b = pack_fp8x8_values(
+        b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+    
+    unsigned long packed_a = pack_fp8x8_values(
+        a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+    
+    // Call the intrinsic and store the result directly to c
+    *c = __builtin_amdgcn_mfma_f32_16x16x32_fp8_fp8(packed_b, packed_a, *c, 0, 0, 0);
+  }
+};
+
+// Specialization for fp8_e4_t that uses the helper
+template <> struct MfmaTraits<fp8_e4_t> {
+  template <typename AccType>
+  static TL_DEVICE void mfma_op(const fp8_e4_t *b,
+                                const fp8_e4_t *a, AccType *c) {
+    FP8MfmaHelper<fp8_e4_t>::mfma_op(b, a, c);
+  }
+};
+
+// Specialization for fp8_e5_t that uses the same helper
+template <> struct MfmaTraits<fp8_e5_t> {
+  template <typename AccType>
+  static TL_DEVICE void mfma_op(const fp8_e5_t *b,
+                                const fp8_e5_t *a, AccType *c) {
+    FP8MfmaHelper<fp8_e5_t>::mfma_op(b, a, c);
+  }
+};
+
+// NOTE: The instrinsics have different dims to fp16, e.g.
+// 16x16x32 or 32x32x16, so we need to adjust micro_size_{x,y,z} based on dtype, maybe kPack
+// needs to be set different upstream as well. Fp8 matmuls are sometimes done with B transposed
+// so I presume this will be ok if we set TransposeB true.
+
+
+// Default template for various dtype traits
+template <typename T>
+struct TypeTraits {
+    // micro_size_k default value is 16, to match the fp16/bf16 MFMA instrinsics K dimension
+    static constexpr int micro_size_k = 16;
+};
+template <>
+struct TypeTraits<fp8_e4_t> {
+    // fp8 uses a micro_size_k default value of 32, to match the 16x16x32 MFMA intrinsic
+    static constexpr int micro_size_k = 32;
+};
+template <>
+struct TypeTraits<fp8_e5_t> {
+    // fp8 uses a micro_size_k default value of 32, to match the 16x16x32 MFMA intrinsic
+    static constexpr int micro_size_k = 32;
 };
 
 // ref to bitblas/tl/mfma_macro_generator.py::kPack
@@ -51,16 +111,20 @@ public:
 
   static constexpr int micro_size_x = 16;
   static constexpr int micro_size_y = 16;
-  static constexpr int micro_size_k = 16;
+  static constexpr int micro_size_k = TypeTraits<A_type>::micro_size_k;
+  // TODO: adjust based on if dtype is fp8, and our desired instrinsic (32x32x16 vs 16x16x32)
 
   // This part comes from the Codegen
   static constexpr int M_Tile = M;
   static constexpr int N_Tile = N;
   static constexpr int K_Tile = K;
 
+  // How many warps are used to process all of the rows/cols in the block
   static constexpr int block_row_warps = num_warp_m;
   static constexpr int block_col_warps = num_warp_n;
 
+  // How many times we will loop over k, to process the K_Tile elements. The ISA intrinsics are
+  // limited to processing (micro_size_k * kPack) elements in one call.
   static constexpr int inner_k = K_Tile / (micro_size_k * kPack);
   static constexpr int warp_rows = M_Tile / (block_row_warps * micro_size_x);
   static constexpr int warp_cols = N_Tile / (block_col_warps * micro_size_y);
@@ -151,6 +215,8 @@ public:
     auto lane_id = tid % warp_size;
     auto tx = lane_id;
 
+    // How many elements are required per warp thread, which will be fed to
+    // the ISA MFMA instrinsic (requires micro_size_{x,y,k} input dims)
     constexpr auto local_size_a = (micro_size_x * micro_size_k) / warp_size;
     constexpr auto local_size_b = (micro_size_y * micro_size_k) / warp_size;
     constexpr auto local_size_c = (micro_size_x * micro_size_y) / warp_size;
@@ -161,6 +227,8 @@ public:
     A_type A_local[warp_rows * kPack * local_size_a];
     B_type B_local[warp_cols * kPack * local_size_b];
 
+    // Process the K dimension in micro-batches of (kPack * micro_size_k) chunks, which corresponds
+    // the the amount of elements the ISA MFMA intrinsic processes in one go.
     for (int ki = 0; ki < inner_k; ki++) {
       // Fetch A into register
       for (int i = 0; i < warp_rows; i++) {
@@ -205,9 +273,16 @@ public:
             auto acc_ptr = ((float32x4 *)C_local) + ((i * warp_cols) + j);
             auto b_ptr = ((B_type *)B_local) + (j * kPack + kp) * 4;
             auto a_ptr = ((A_type *)A_local) + (i * kPack + kp) * 4;
+            // TODO: adjust the 4 above to generalise to fp8, as the intrinsic expects 8 bytes
+            // Or, do we just double kPack? Or do something based of off nb of bits in dtype?
+            // Actually, I think we may be ok, as we're just pointing to locations in memory, based
+            // off of the output dtype/grid. Ideally, the intrinsic will accept us feeding in the 
+            // same grid even if it maps to different amoiunt of elements, it'll internally map it 
+            // to where it needs to go.
+            // Ideally, the only consequence of fp8 is we cut the number of inner_k loops in half.
 
-            // Use the trait to select the correct MFMA instruction, either fp16
-            // or bf16 currently
+            // Use the trait to select the correct MFMA instruction, either fp16,
+            // bf16 of fp8 currently
             MfmaTraits<A_type>::mfma_op(b_ptr, a_ptr, acc_ptr);
           }
         }
@@ -227,6 +302,8 @@ public:
     auto lane_id = tid % warp_size;
     auto tx = lane_id;
 
+    // How many elements are required per warp thread, which will be fed to
+    // the ISA MFMA instrinsic (requires micro_size_{x,y,k} input dims)
     constexpr auto local_size_a = (micro_size_x * micro_size_k) / warp_size;
     constexpr auto local_size_b = (micro_size_y * micro_size_k) / warp_size;
     constexpr auto local_size_c = (micro_size_x * micro_size_y) / warp_size;
@@ -236,6 +313,8 @@ public:
 
     B_type B_local[warp_cols * kPack * local_size_b];
 
+    // Process the K dimension in micro-batches of (kPack * micro_size_k) chunks, which corresponds
+    // the the amount of elements the ISA MFMA intrinsic processes in one go.
     for (int ki = 0; ki < inner_k; ki++) {
       // Fetch B into register
       for (int j = 0; j < warp_cols; j++) {
@@ -265,8 +344,8 @@ public:
             auto a_ptr = ((A_type *)A_local) +
                          (ki * warp_rows * kPack + i * kPack + kp) * 4;
 
-            // Use the trait to select the correct MFMA instruction, either fp16
-            // or bf16 currently
+            // Use the trait to select the correct MFMA instruction, either fp16,
+            // bf16 of fp8 currently
             MfmaTraits<A_type>::mfma_op(b_ptr, a_ptr, acc_ptr);
           }
         }

@@ -5,6 +5,7 @@
 #include <ck_tile/core.hpp>
 #include <hip/hip_bf16.h>
 #include <hip/hip_fp16.h>
+#include <hip/hip_fp8.h>
 #include <hip/hip_runtime.h>
 #include <rocwmma/rocwmma.hpp>
 
@@ -32,6 +33,11 @@
 
 #define hpow __ocml_pown_f16
 #define hsqrt __ocml_sqrt_f16
+
+// Do we use fnuz or OCP for fp8
+#ifndef USE_FP8_FNUZ
+#define USE_FP8_FNUZ true
+#endif
 
 using float16_t = _Float16;
 using float16x2 =
@@ -65,6 +71,81 @@ struct bfloat16x16 {
 
 typedef
     __attribute__((__vector_size__(4 * sizeof(short)))) short bfloat16x4_vec;
+
+// TODO: add fp8 and 4xfp8 packing
+
+// OCP FP8 currently not supported on MI300s: 
+// https://rocm.docs.amd.com/projects/HIP/en/docs-6.4.0/reference/low_fp_types.html 
+#if USE_FP8_FNUZ
+  // Fp8_e4m3_fnuz
+  using fp8_e4_t = __hip_fp8_e4m3_fnuz;
+  using fp8_e4_2_t = __hip_fp8x2_e4m3_fnuz;
+  using fp8_e4_4_t = __hip_fp8x4_e4m3_fnuz;
+  struct fp8_e4_8_t {
+    fp8_e4_t data[8];
+  };
+  struct fp8_e4_16_t {
+    fp8_e4_t data[16];
+  };
+
+  // Fp8_e5m3_fnuz
+  using fp8_e5_t = __hip_fp8_e5m2_fnuz;
+  using fp8_e5_2_t = __hip_fp8x2_e5m2_fnuz;
+  using fp8_e5_4_t = __hip_fp8x4_e5m2_fnuz;
+  struct fp8_e5_8_t {
+    fp8_e5_t data[8];
+  };
+  struct fp8_e5_16_t {
+    fp8_e5_t data[16];
+  };
+#else
+  // USE OCP FP8
+  using fp8_e4_t = __hip_fp8_e4m3;
+  using fp8_e4_2_t = __hip_fp8x2_e4m3;
+  using fp8_e4_4_t = __hip_fp8x4_e4m3;
+  struct fp8_e4_8_t {
+    fp8_e4_t data[8];
+  };
+  struct fp8_e4_16_t {
+    fp8_e4_t data[16];
+  };
+
+  // Fp8_e5m2
+  using fp8_e5_t = __hip_fp8_e5m2;
+  using fp8_e5_2_t = __hip_fp8x2_e5m2;
+  using fp8_e5_4_t = __hip_fp8x4_e5m2;
+  struct fp8_e5_8_t {
+    fp8_e5_t data[8];
+  };
+  struct fp8_e5_16_t {
+    fp8_e5_t data[16];
+  };
+#endif
+
+// Pack eight float8 values. This gets us to 64 bits, which is what the AMD ISO MFMA primitives
+// typically expect.
+template<typename Fp8Type>
+TL_DEVICE unsigned long pack_fp8x8_values(const Fp8Type& val1, const Fp8Type& val2, 
+                             const Fp8Type& val3, const Fp8Type& val4,
+                             const Fp8Type& val5, const Fp8Type& val6, 
+                             const Fp8Type& val7, const Fp8Type& val8) {
+    return static_cast<unsigned long>(val1.__x) |
+           (static_cast<unsigned long>(val2.__x) << 8) |
+           (static_cast<unsigned long>(val3.__x) << 16) |
+           (static_cast<unsigned long>(val4.__x) << 24) |
+           (static_cast<unsigned long>(val5.__x) << 32) |
+           (static_cast<unsigned long>(val6.__x) << 40) |
+           (static_cast<unsigned long>(val7.__x) << 48) |
+           (static_cast<unsigned long>(val8.__x) << 56);
+}
+
+// TL_DEVICE unsigned __pack_float_e4(const fp8_e4_t w, const fp8_e4_t x, const fp8_e4_t y, const fp8_e4_t z) {
+//   unsigned v0 = *((unsigned int *)&w);
+//   unsigned v1 = *((unsigned int *)&x);
+//   unsigned v2 = *((unsigned int *)&y);
+//   unsigned v3 = *((unsigned int *)&z);
+//   return (v1 << 24) | (v1 << 16) | (v1 << 8) | v0;
+// }
 
 using int32x4 = __attribute__((__vector_size__(4 * sizeof(int)))) int;
 using float32x4 = __attribute__((__vector_size__(4 * sizeof(float)))) float;

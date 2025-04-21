@@ -61,6 +61,15 @@ TL_DEVICE unsigned __pack_nv_bfloat162(const bfloat16_t x, const bfloat16_t y) {
   return (v1 << 16) | v0;
 }
 
+// Pack four float8_t values.
+TL_DEVICE unsigned __pack_nv_float84(const float8_t w, const float8_t x, const float8_t y, const float8_t z) {
+  unsigned v0 = *((unsigned char *)&w);
+  unsigned v1 = *((unsigned char *)&x);
+  unsigned v2 = *((unsigned char *)&y);
+  unsigned v3 = *((unsigned char *)&z);
+  return (v3 << 24) | (v2 << 16) | (v1 << 8) | v0;
+}
+
 // Pack four char values
 TL_DEVICE int make_int(signed char x0, signed char x1, signed char x2,
                        signed char x3) {

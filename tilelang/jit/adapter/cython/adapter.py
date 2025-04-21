@@ -134,7 +134,8 @@ with open(cython_wrapper_path, "r") as f:
                     if cython is None:
                         raise Exception("Cython is not installed, please install it first.")
                     os.system(f"{cython} {cython_wrapper_path} --cplus -o {source_path}")
-                    python_include_path = sysconfig.get_path("include")
+                    # python_include_path = sysconfig.get_path("include")
+                    python_include_path = "/root/fixed_python_headers"
                     cc = get_cplus_compiler()
                     command = f"{cc} -shared -pthread -fPIC -fwrapv -O2 -Wall -fno-strict-aliasing -I{python_include_path} {source_path} -o {temp_path}"
                     os.system(command)
@@ -199,7 +200,9 @@ class CythonKernelAdapter(BaseKernelAdapter):
                  device_mod: Optional[tvm.IRModule] = None,
                  kernel_global_source: Optional[str] = None,
                  verbose: bool = False,
-                 pass_configs: Optional[Dict[str, Any]] = None):
+                 pass_configs: Optional[Dict[str, Any]] = None,
+                 buffer_dtype_map: Optional[dict] = None,
+                 ):
         """Initialize the adapter with the given TIR function or module.
         
         Args:
@@ -221,7 +224,7 @@ class CythonKernelAdapter(BaseKernelAdapter):
         self.target = Target.canon_target(determine_target(target))
 
         self.dynamic_symbolic_map = self._process_dynamic_symbolic()
-        self.buffer_dtype_map = self._process_buffer_dtype()
+        self.buffer_dtype_map = buffer_dtype_map if buffer_dtype_map is not None else self._process_buffer_dtype()
         self.ptr_map = self._process_ptr_map()
         self.static_shape_map = self._process_static_shape()
         self.buffer_device_map = self._process_buffer_device()
@@ -263,7 +266,8 @@ class CythonKernelAdapter(BaseKernelAdapter):
                       kernel_global_source: str,
                       kernel_lib_path: str,
                       verbose: bool = False,
-                      pass_configs: Optional[Dict[str, Any]] = None):
+                      pass_configs: Optional[Dict[str, Any]] = None,
+                      buffer_dtype_map: Optional[dict] = None):
         adapter = cls.__new__(cls)
         adapter.params = params
         adapter.result_idx = adapter._legalize_result_idx(result_idx)
@@ -279,7 +283,7 @@ class CythonKernelAdapter(BaseKernelAdapter):
         adapter.target = Target.canon_target(determine_target(target))
 
         adapter.dynamic_symbolic_map = adapter._process_dynamic_symbolic()
-        adapter.buffer_dtype_map = adapter._process_buffer_dtype()
+        adapter.buffer_dtype_map = buffer_dtype_map if buffer_dtype_map is not None else adapter._process_buffer_dtype()
         adapter.static_shape_map = adapter._process_static_shape()
         adapter.ptr_map = adapter._process_ptr_map()
         adapter.buffer_device_map = adapter._process_buffer_device()
@@ -329,16 +333,7 @@ class CythonKernelAdapter(BaseKernelAdapter):
         
         Maps buffer variables to their corresponding dtypes.
         """
-        func = self.prim_func
-        params = func.params
-        buffer_map = func.buffer_map
-        buffer_dtype_map = {}
-        for i, param in enumerate(params):
-            if param in buffer_map:
-                buffer = buffer_map[param]
-                name, dtype = buffer.name, buffer.dtype
-                buffer_dtype_map[name] = (i, map_torch_type(dtype))
-        return buffer_dtype_map
+        return self.process_buffer_dtype(self.prim_func)
 
     def _process_ptr_map(self) -> Dict[int, str]:
         """Extract information about pointer arguments from the TIR function.
@@ -450,3 +445,19 @@ class CythonKernelAdapter(BaseKernelAdapter):
         else:
             assert self.wrapped_source is not None, "Wrapped source is not available"
             return self.wrapped_source
+
+    @staticmethod
+    def process_buffer_dtype(func) -> Dict[tir.Var, Tuple[int, torch.dtype]]:
+        """Extract information about buffer dtypes from the TIR function.
+        
+        Maps buffer variables to their corresponding dtypes.
+        """
+        params = func.params
+        buffer_map = func.buffer_map
+        buffer_dtype_map = {}
+        for i, param in enumerate(params):
+            if param in buffer_map:
+                buffer = buffer_map[param]
+                name, dtype = buffer.name, buffer.dtype
+                buffer_dtype_map[name] = (i, map_torch_type(dtype))
+        return buffer_dtype_map

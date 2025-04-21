@@ -148,6 +148,14 @@ const Op &STMatrixOp();
 const Op &PackB16Op();
 
 /*!
+ * \brief Pack four fp8 value into a b32 value
+ *
+ * int32 PackF8Op(fp8_value, fp8_value, fp8_value, fp8_value)
+ *
+ */
+const Op &PackF8Op();
+
+/*!
  * \brief Similar to __syncthreads(), but can be used to sync partial threads
  *
  * SyncThreadsPartialOp(num_partial_threads or mbarrier)

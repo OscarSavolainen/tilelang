@@ -202,6 +202,7 @@ class JITKernel(object):
                 enable_host_codegen=enable_host_codegen,
                 enable_device_compile=enable_device_compile)
 
+        artifact, buffer_dtype_map = dtypes_override(target, execution_backend, artifact, tilelang_func)
         self.artifact = artifact
 
         # Create an adapter based on the specified execution backend.
@@ -235,6 +236,7 @@ class JITKernel(object):
                 kernel_global_source=artifact.kernel_source,
                 verbose=verbose,
                 pass_configs=pass_configs,
+                buffer_dtype_map=buffer_dtype_map,
             )
         else:
             # Handle invalid backend.
@@ -374,3 +376,17 @@ class JITKernel(object):
 
         # Export the compiled kernel function to a shared library file.
         self.rt_module.export_library(kernel_file)
+
+def dtypes_override(target: str, execution_backend: str, artifact, tilelang_func):
+    """
+    Helps us support custom dtypes that TVM, does not currently support. For example, we
+    can override the use of the FP8 e4m3/e5m2 OCP dtypes with AMD-supported de4m3/e5m2
+    fnuz dypes, enabling us to do FP8 matmuls.
+    """
+    buffer_dtype_map = None
+    if target == "hip" and execution_backend == "cython":
+        from tilelang.jit.adapter.cython.dtype_override import hip_fp8_fnuz_override
+        artifact, buffer_dtype_map = hip_fp8_fnuz_override(artifact, tilelang_func)
+
+    return artifact, buffer_dtype_map
+

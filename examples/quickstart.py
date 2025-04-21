@@ -9,6 +9,11 @@ import tilelang.language as T
 from tilelang.intrinsics import (
     make_mma_swizzle_layout as make_swizzle_layout,)  # noqa: F401
 
+import torch
+# torch_dtype=torch.bfloat16
+# dtype="bfloat16"
+dtype="e4m3_float8"
+torch_dtype=torch.float8_e4m3fnuz
 
 def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="float"):
     # add decorator @tilelang.jit if you want to return a torch function
@@ -58,31 +63,43 @@ def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="flo
 
 
 # 1. Define the kernel (matmul) and compile/lower it into an executable module
-func = matmul(1024, 1024, 1024, 128, 128, 32)
+func = matmul(1024, 1024, 1024, 128, 128, 32, dtype=dtype)
 
 # 2. Compile the kernel into a torch function
 # out_idx specifies the index of the output buffer in the argument list
 # if out_idx is specified, the tensor will be created during runtime
 # target currently can be "cuda" or "hip" or "cpu".
-jit_kernel = tilelang.compile(func, out_idx=[2], target="cuda", execution_backend="cython")
+jit_kernel = tilelang.compile(func, out_idx=[2], target="hip", execution_backend="cython")
 # jit_kernel = tilelang.compile(func, out_idx=[2], target="cuda", execution_backend="dlpack")
 
 # 3. Test the kernel in Python with PyTorch data
-import torch
-
+if torch_dtype in [torch.float, torch.float16, torch.bfloat16]:
 # Create random input tensors on the GPU
-a = torch.randn(1024, 1024, device="cuda", dtype=torch.float16)
-b = torch.randn(1024, 1024, device="cuda", dtype=torch.float16)
+    a = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
+    b = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
+elif torch_dtype in [torch.float8_e4m3fnuz, torch.float8_e5m2fnuz, torch.float8_e4m3fn]:
+# Generate random inputs with FP8 quantization
+    a = (torch.zeros((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
+    b = (torch.zeros((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
+    for i in range(5):
+        a[i, i] = 1.0
+        b[i, i] = 1.0
+else:
+    raise TypeError("Add another dtype as desired!")
 
 # Run the kernel through the Profiler
 c = jit_kernel(a, b)
+c_bf16 = c.to(torch.bfloat16)
 
 print(c)
 # Reference multiplication using PyTorch
-ref_c = a @ b
+a_bf16 = a.to(torch.bfloat16)
+b_bf16 = b.to(torch.bfloat16)
+ref_c_bf16 = a_bf16 @ b_bf16
 
 # Validate correctness
-torch.testing.assert_close(c, ref_c, rtol=1e-2, atol=1e-2)
+import ipdb, pprint; ipdb.set_trace();
+torch.testing.assert_close(c_bf16, ref_c_bf16, rtol=1e-2, atol=1e-2)
 print("Kernel output matches PyTorch reference.")
 
 # 4. Retrieve and inspect the generated CUDA source (optional)

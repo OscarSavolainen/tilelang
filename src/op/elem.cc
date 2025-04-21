@@ -321,6 +321,7 @@ Stmt Copy::LowerLDSMCopy(const LowerArgs &T, arith::Analyzer *analyzer) const {
         value0 = Cast(shared_tensor->dtype, value0);
         value1 = Cast(shared_tensor->dtype, value1);
       }
+      // TODO: should there be some dtype check here, e.g. if we want to use fp8?
       PrimExpr value_packed =
           Call(DataType::Int(32), PackB16Op(), {value0, value1});
       args.push_back(value_packed);
