@@ -48,20 +48,15 @@ struct FP8MfmaHelper {
   template <typename AccType>
   static TL_DEVICE void mfma_op(const FP8Type *b,
                                const FP8Type *a, AccType *c) {
-    float8x8_vec b_vec, a_vec;
-
-    // Reinterpret the pointers as int8
-    int8_t *b_int8 = reinterpret_cast<int8_t *>(const_cast<FP8Type *>(b));
-    int8_t *a_int8 = reinterpret_cast<int8_t *>(const_cast<FP8Type *>(a));
-
-    // Copy the data
-    for (int i = 0; i < 8; ++i) {
-      b_vec[i] = b_int8[i];
-      a_vec[i] = a_int8[i];
-    }
-
+    // Pack the fp8 values into a long
+    unsigned long packed_b = pack_fp8x8_values(
+        b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+    
+    unsigned long packed_a = pack_fp8x8_values(
+        a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+    
     // Call the intrinsic and store the result directly to c
-    *c = __builtin_amdgcn_mfma_f32_16x16x32_fp8_fp8(b_vec, a_vec, *c, 0, 0, 0);
+    *c = __builtin_amdgcn_mfma_f32_16x16x32_fp8_fp8(packed_b, packed_a, *c, 0, 0, 0);
   }
 };
 
@@ -93,17 +88,17 @@ template <> struct MfmaTraits<fp8_e5_t> {
 template <typename T>
 struct TypeTraits {
     // micro_size_k default value is 16, to match the fp16/bf16 MFMA instrinsics K dimension
-    static constexpr int value = 16;
+    static constexpr int micro_size_k = 16;
 };
 template <>
 struct TypeTraits<fp8_e4_t> {
     // fp8 uses a micro_size_k default value of 32, to match the 16x16x32 MFMA intrinsic
-    static constexpr int value = 32;
+    static constexpr int micro_size_k = 32;
 };
 template <>
 struct TypeTraits<fp8_e5_t> {
     // fp8 uses a micro_size_k default value of 32, to match the 16x16x32 MFMA intrinsic
-    static constexpr int value = 32;
+    static constexpr int micro_size_k = 32;
 };
 
 // ref to bitblas/tl/mfma_macro_generator.py::kPack

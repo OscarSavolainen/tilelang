@@ -10,10 +10,10 @@ from tilelang.intrinsics import (
     make_mma_swizzle_layout as make_swizzle_layout,)  # noqa: F401
 
 import torch
-torch_dtype=torch.bfloat16
-dtype="bfloat16"
-# dtype="e4m3_float8"
-# torch_dtype=torch.float8_e4m3fn
+# torch_dtype=torch.bfloat16
+# dtype="bfloat16"
+dtype="e4m3_float8"
+torch_dtype=torch.float8_e4m3fnuz
 
 def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="float"):
     # add decorator @tilelang.jit if you want to return a torch function
@@ -73,9 +73,17 @@ jit_kernel = tilelang.compile(func, out_idx=[2], target="hip", execution_backend
 # jit_kernel = tilelang.compile(func, out_idx=[2], target="cuda", execution_backend="dlpack")
 
 # 3. Test the kernel in Python with PyTorch data
+if torch_dtype in [torch.float, torch.float16, torch.bfloat16]:
 # Create random input tensors on the GPU
-a = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
-b = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
+    a = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
+    b = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
+elif torch_dtype in [torch.float8_e4m3fnuz, torch.float8_e5m2fnuz, torch.float8_e4m3fn]:
+# Generate random inputs with FP8 quantization
+    a = (torch.randn((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
+    b = (torch.randn((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
+else:
+    raise TypeError("Add another dtype as desired!")
+
 
 # Run the kernel through the Profiler
 c = jit_kernel(a, b)

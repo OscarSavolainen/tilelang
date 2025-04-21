@@ -229,21 +229,36 @@ void CodeGenTileLangHIP::PrintType(DataType t, std::ostream &os) { // NOLINT(*)
     if (!fail)
       return;
   } else if (t.is_float8()) {
-    // TODO add fp8x8, or can have in tl:gemm
-    if (t.is_scalar()) {
-      os << "unsigned char"; // __nv_fp8_storage_t is an alias of unsigned char
-    } else if (lanes == 2) {
-      os << "unsigned short int"; // __nv_fp8x2_storage_t is an alias of
-                                  // unsigned short
-    } else if (lanes == 4) {
-      os << "unsigned int"; // __nv_fp8x4_storage_t is an alias of unsigned int
-    } else if (lanes == 8) {
-      os << "unsigned double"; // There isn't an nv alias for 8 packed fp8 values
+    if (t.is_float8_e4m3fn()) {
+      if (t.is_scalar()) {
+        os << "fp8_e4_t";
+      } else if (lanes == 2) {
+        os << "fp8_e4_2_t";
+      } else if (lanes == 4) {
+        os << "fp8_e4_4_t";
+      } else if (lanes == 8) {
+        os << "fp8_e4_8_t";
+      } else {
+        fail = true;
+      }
+      if (!fail)
+        return;
     } else {
-      fail = true;
+      // FP8 E5M2
+      if (t.is_scalar()) {
+        os << "fp8_e5_t";
+      } else if (lanes == 2) {
+        os << "fp8_e5_2_t";
+      } else if (lanes == 4) {
+        os << "fp8_e5_4_t";
+      } else if (lanes == 8) {
+        os << "fp8_e5_8_t";
+      } else {
+        fail = true;
+      }
+      if (!fail)
+        return;
     }
-    if (!fail)
-      return;
   } else if (t == DataType::Bool()) {
     os << "bool";
     return;
@@ -1185,7 +1200,7 @@ inline void PrintConst(const FloatImmNode *op, std::ostream &os,
     os << '(' << std::scientific << op->value << 'f' << ')';
     return;
   }
-  // TODO: add fp8?
+  // TODO: add fp8? Doesn't seem needed atm
 
   // Type code is kFloat
   switch (op->dtype.bits()) {

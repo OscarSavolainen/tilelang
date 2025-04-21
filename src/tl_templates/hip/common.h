@@ -122,9 +122,22 @@ typedef
   };
 #endif
 
-typedef
-    __attribute__((__vector_size__(8 * sizeof(int8_t)))) int8_t float8x8_vec;
-
+// Pack eight float8 values. This gets us to 64 bits, which is what the AMD ISO MFMA primitives
+// typically expect.
+template<typename Fp8Type>
+TL_DEVICE unsigned long pack_fp8x8_values(const Fp8Type& val1, const Fp8Type& val2, 
+                             const Fp8Type& val3, const Fp8Type& val4,
+                             const Fp8Type& val5, const Fp8Type& val6, 
+                             const Fp8Type& val7, const Fp8Type& val8) {
+    return static_cast<unsigned long>(val1.__x) |
+           (static_cast<unsigned long>(val2.__x) << 8) |
+           (static_cast<unsigned long>(val3.__x) << 16) |
+           (static_cast<unsigned long>(val4.__x) << 24) |
+           (static_cast<unsigned long>(val5.__x) << 32) |
+           (static_cast<unsigned long>(val6.__x) << 40) |
+           (static_cast<unsigned long>(val7.__x) << 48) |
+           (static_cast<unsigned long>(val8.__x) << 56);
+}
 
 // TL_DEVICE unsigned __pack_float_e4(const fp8_e4_t w, const fp8_e4_t x, const fp8_e4_t y, const fp8_e4_t z) {
 //   unsigned v0 = *((unsigned int *)&w);
