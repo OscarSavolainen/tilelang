@@ -109,6 +109,7 @@ cdef class CythonKernelWrapper:
                 ins_idx += 1
             tensor_list.append(tensor)
         
+        import ipdb, pprint; ipdb.set_trace();
         # Convert tensor pointers to C void pointers for kernel call
         call_args = []
         for i in range(len(tensor_list)):

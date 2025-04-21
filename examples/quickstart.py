@@ -77,7 +77,7 @@ if torch_dtype in [torch.float, torch.float16, torch.bfloat16]:
 # Create random input tensors on the GPU
     a = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
     b = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
-elif torch_dtype in [torch.float8_e4m3fnuz, torch.float8_e5m2fnuz, torch.float8_e4m3fn]:
+elif torch_dtype in [torch.float8_e4m3fnuz, torch.float8_e5m2fnuz, torch.float8_e4m3fn, torch.float8_e5m2fn]:
 # Generate random inputs with FP8 quantization
     a = (torch.randn((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
     b = (torch.randn((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)

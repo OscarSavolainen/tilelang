@@ -127,7 +127,7 @@ class TLCUDASourceWrapper(object):
                  device_mod: Optional[IRModule] = None,
                  host_mod: Optional[IRModule] = None,
                  pass_configs: Optional[Dict[str, Any]] = None,
-                 type_map: Optional[dict} = None):
+                 type_map: Optional[dict] = None):
         self.mod = scheduled_ir_module
         self.target = target
         self.source = source

@@ -108,6 +108,17 @@ pip install tilelang -f https://tile-ai.github.io/whl/nightly/cu121/
 
 > **Note:** Nightly builds contain the most recent code changes but may be less stable than official releases. They're ideal for testing new features or if you need a specific bugfix that hasn't been released yet.
 
+
+**NOTE:** Need to write somewhere in this PR that one can choose for HIP at compile time if it will do fp8
+OCP or fnuz. Issue is MI300s do not currently support OCP, which is what CUDA uses, so there
+will be a mismatch. Python code should accept both OCP and fnuz formats, i.e.
+```python
+torch.float8_e4m3fnuz
+torch.float8_e4m3fn
+```
+
+
+
 ## Quick Start
 
 In this section, you'll learn how to write and execute a straightforward GEMM (matrix multiplication) kernel using tile-lang, followed by techniques for layout optimizations, pipelining, and L2-cache–friendly swizzling.
