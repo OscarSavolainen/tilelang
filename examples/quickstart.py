@@ -12,7 +12,7 @@ from tilelang.intrinsics import (
 import torch
 # torch_dtype=torch.bfloat16
 # dtype="bfloat16"
-dtype="e4m3_float8"
+dtype="e4m3_fnuz_float8"
 torch_dtype=torch.float8_e4m3fnuz
 
 def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="float"):

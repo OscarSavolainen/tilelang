@@ -1435,6 +1435,13 @@ e4m3_float8x16 = func_gen(("E4M3Float8x16"))
 e4m3_float8x32 = func_gen(("E4M3Float8x32"))
 e4m3_float8x64 = func_gen(("E4M3Float8x64"))
 
+e4m3_fnuz_float8 = func_gen(("E4M3FnuzFloat8"))
+e4m3_fnuz_float8x4 = func_gen(("E4M3FnuzFloat8x4"))
+e4m3_fnuz_float8x8 = func_gen(("E4M3FnuzFloat8x8"))
+e4m3_fnuz_float8x16 = func_gen(("E4M3FnuzFloat8x16"))
+e4m3_fnuz_float8x32 = func_gen(("E4M3FnuzFloat8x32"))
+e4m3_fnuz_float8x64 = func_gen(("E4M3FnuzFloat8x64"))
+
 e5m2_float8 = func_gen(("E5M2Float8"))
 e5m2_float8x4 = func_gen(("E5M2Float8x4"))
 e5m2_float8x8 = func_gen(("E5M2Float8x8"))
@@ -1442,6 +1449,12 @@ e5m2_float8x16 = func_gen(("E5M2Float8x16"))
 e5m2_float8x32 = func_gen(("E5M2Float8x32"))
 e5m2_float8x64 = func_gen(("E5M2Float8x64"))
 
+e5m2_fnuz_float8 = func_gen(("E5M2FnuzFloat8"))
+e5m2_fnuz_float8x4 = func_gen(("E5M2FnuzFloat8x4"))
+e5m2_fnuz_float8x8 = func_gen(("E5M2FnuzFloat8x8"))
+e5m2_fnuz_float8x16 = func_gen(("E5M2FnuzFloat8x16"))
+e5m2_fnuz_float8x32 = func_gen(("E5M2FnuzFloat8x32"))
+e5m2_fnuz_float8x64 = func_gen(("E5M2FnuzFloat8x64"))
 # pylint: enable=invalid-name
 
 
@@ -1966,31 +1979,43 @@ __all__ = [
     "uint64x64",
     "e4m3_float8",
     "e5m2_float8",
+    "e4m3_fnuz_float8",
+    "e5m2_fnuz_float8",
     "float16",
     "float32",
     "float64",
     "e4m3_float8x4",
     "e5m2_float8x4",
+    "e4m3_fnuz_float8x4",
+    "e5m2_fnuz_float8x4",
     "float16x4",
     "float32x4",
     "float64x4",
     "e4m3_float8x8",
+    "e4m3_fnuz_float8x8",
+    "e5m2_fnuz_float8x8",
     "e5m2_float8x8",
     "float16x8",
     "float32x8",
     "float64x8",
     "e4m3_float8x16",
     "e5m2_float8x16",
+    "e4m3_fnuz_float8x16",
+    "e5m2_fnuz_float8x16",
     "float16x16",
     "float32x16",
     "float64x16",
     "e4m3_float8x32",
     "e5m2_float8x32",
+    "e4m3_fnuz_float8x32",
+    "e5m2_fnuz_float8x32",
     "float16x32",
     "float32x32",
     "float64x32",
     "e4m3_float8x64",
     "e5m2_float8x64",
+    "e4m3_fnuz_float8x64",
+    "e5m2_fnuz_float8x64",
     "float16x64",
     "float32x64",
     "float64x64",

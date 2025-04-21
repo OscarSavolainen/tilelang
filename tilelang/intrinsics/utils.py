@@ -76,12 +76,12 @@ def mfma_store_index_map(thread_id, local_id):
     return thread_id_shared_access_64x4_to_16x16_layout_C_n_m(thread_id, local_id)
 
 
-def get_mma_micro_size(dtype: Literal["float16", "int8"]):
+def get_mma_micro_size(dtype: Literal["float16", "e4m3_float8", "e5m2_float8", "e4m3_fnuz_float8", "e5m2_fnuz_float8", "int8"]):
     # TODO(lei): FP8 related precision support.
     # Basic Tensor Core Matrix Multiply operation Unit
     micro_size_x = micro_size_y = 16
     micro_size_k = 16
-    if dtype in {"e4m3_float8", "e5m2_float8", "int8"}:
+    if dtype in {"e4m3_float8", "e5m2_float8", "e4m3_fnuz_float8", "e5m2_fnuz_float8", "int8"}:
         micro_size_k = 32
     return micro_size_x, micro_size_y, micro_size_k
 

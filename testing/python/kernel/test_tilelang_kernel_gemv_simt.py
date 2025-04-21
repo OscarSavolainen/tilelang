@@ -178,6 +178,17 @@ def test_gemv_simt_fp8():
     evaluate_gemv_simt(1, 1024, 1024, "e4m3_float8", "float32", "float32", with_bias=False)
     evaluate_gemv_simt(1, 1024, 1024, "e5m2_float8", "float32", "float32", with_bias=False)
 
+@tilelang.testing.requires_rocm
+def test_gemv_simt():
+    evaluate_gemv_simt(1, 1024, 1024, "float16", "float16", "float16", with_bias=False)
+    evaluate_gemv_simt(1, 1024, 1024, "int8", "int32", "int32", with_bias=False)
+
+@tilelang.testing.requires_rocm
+@tilelang.testing.requires_rocm_architecture("gfx940", "gfx941", "gfx942")
+def test_gemv_simt_rocm_fp8():
+    evaluate_gemv_simt(1, 1024, 1024, "e4m3_fnuz_float8", "float32", "float32", with_bias=False)
+    evaluate_gemv_simt(1, 1024, 1024, "e5m2_fnuz_float8", "float32", "float32", with_bias=False)
+
 
 if __name__ == "__main__":
     tilelang.testing.main()

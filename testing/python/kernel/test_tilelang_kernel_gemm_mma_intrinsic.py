@@ -44,7 +44,9 @@ def tl_matmul(
         "float16",
         "bfloat16",
         "e4m3_float8",
+        "e4m3_fnuz_float8",
         "e5m2_float8",
+        "e5m2_fnuz_float8",
         "int8",
     ], "Currently only float16 and int8 are supported"
     assert out_dtype in [
@@ -55,7 +57,7 @@ def tl_matmul(
 
     micro_size_x = micro_size_y = micro_size_k = 16
 
-    is_float8 = in_dtype in ["e4m3_float8", "e5m2_float8"]
+    is_float8 = in_dtype in ["e4m3_float8", "e4m3_fnuz_float8", "e5m2_float8", "e5m2_fnuz_float8"]
     if out_dtype == "int32" or is_float8:
         micro_size_k = 32
 

@@ -45,6 +45,8 @@ def tl_matmul(
         "bfloat16",
         "e4m3_float8",
         "e5m2_float8",
+        "e4m3_fnuz_float8",
+        "e5m2_fnuz_float8",
         "int8",
     ], "Currently only float16 and int8 are supported"
     assert out_dtype in [
@@ -55,7 +57,7 @@ def tl_matmul(
 
     micro_size_x = micro_size_y = micro_size_k = 16
 
-    is_float8 = in_dtype in ["e4m3_float8", "e5m2_float8"]
+    is_float8 = in_dtype in ["e4m3_float8", "e5m2_float8", "e4m3_fnuz_float8", "e5m2_fnuz_float8"]
     if out_dtype == "int32" or is_float8:
         micro_size_k = 32
 
@@ -221,6 +223,10 @@ def assert_tl_matmul_correctness(M, N, K, in_dtype, out_dtype, accum_dtype):
 def test_assert_tl_matmul_bfloat16():
     assert_tl_matmul_correctness(256, 256, 256, "bfloat16", "float32", "float32")
 
+@tilelang.testing.requires_rocm
+@tilelang.testing.requires_rocm_architecture("gfx940", "gfx941", "gfx942")
+def test_assert_tl_matmul_bfloat16():
+    assert_tl_matmul_correctness(256, 256, 256, "bfloat16", "float32", "float32")
 
 if __name__ == "__main__":
     tilelang.testing.main()

@@ -126,7 +126,8 @@ class TLCUDASourceWrapper(object):
                  target: Target,
                  device_mod: Optional[IRModule] = None,
                  host_mod: Optional[IRModule] = None,
-                 pass_configs: Optional[Dict[str, Any]] = None):
+                 pass_configs: Optional[Dict[str, Any]] = None,
+                 type_map: Optional[dict} = None):
         self.mod = scheduled_ir_module
         self.target = target
         self.source = source
@@ -142,6 +143,7 @@ class TLCUDASourceWrapper(object):
         self.srcpath: Optional[str] = None
         self.libpath: Optional[str] = None
         self.lib_code: Optional[str] = self.update_lib_code(source)
+        self.type_map = type_map if type_map is not None else self._TYPE_MAP
 
     def is_tma_descriptor_arg(self, arg_name: str) -> bool:
         return arg_name in self.prim_func.buffer_map
@@ -157,7 +159,7 @@ class TLCUDASourceWrapper(object):
                 buffer = self.prim_func.buffer_map[param]
                 function_args.append({
                     "name": buffer.data.name,
-                    "type": self._TYPE_MAP[buffer.dtype] + "* __restrict__",
+                    "type": self.type_map[buffer.dtype] + "* __restrict__",
                 })
             elif isinstance(param, tvm.tir.Var):
                 function_args.append({"name": param.name, "type": self._TYPE_MAP[param.dtype]})
@@ -423,7 +425,23 @@ class TLHIPSourceWrapper(TLCUDASourceWrapper):
     """
     A wrapper class for the TileLang HIP backend.
     """
-
+    _TYPE_MAP = {
+        "float32": "float",
+        "float16": "half_t",
+        "bfloat16": "bfloat16_t",
+        "e4m3_fnuz_float8": "fp8_e4_t",  # HIP-specific
+        "e5m2_fnuz_float8": "fp8_e5_t",  # HIP-specific
+        "float64": "double",
+        "int64": "int64_t",
+        "int32": "int",
+        "uint32": "unsigned int",
+        "bool": "int8_t",
+        "int8": "int8_t",
+        "uint8": "uint8_t",
+        "int16": "int16_t",
+        "uint16": "uint16_t",
+        "uchar": "uint8_t",
+    }
     def __init__(self,
                  scheduled_ir_module: IRModule,
                  source: str,
@@ -431,7 +449,7 @@ class TLHIPSourceWrapper(TLCUDASourceWrapper):
                  device_mod: Optional[IRModule] = None,
                  host_mod: Optional[IRModule] = None,
                  pass_configs: Optional[Dict[str, Any]] = None):
-        super().__init__(scheduled_ir_module, source, target, device_mod, host_mod, pass_configs)
+        super().__init__(scheduled_ir_module, source, target, device_mod, host_mod, pass_configs, type_map=self._TYPE_MAP)
 
     def get_init_func(self):
         # Initialize an empty string for the CUDA function call

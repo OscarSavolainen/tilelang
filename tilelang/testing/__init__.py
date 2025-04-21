@@ -9,6 +9,7 @@ import numpy as np
 from tvm.testing.utils import *
 
 from tilelang.utils.tensor import torch_assert_close as torch_assert_close
+from tvm.contrib.rocm import get_rocm_arch, find_rocm_path
 
 
 # pytest.main() wrapper to allow running single test file
@@ -23,3 +24,10 @@ def set_random_seed(seed: int = 42) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+def requires_rocm_architecture(required_archs: tuple) -> str:
+    rocm_path = find_rocm_path()
+    arch = get_rocm_arch(rocm_path)
+    import ipdb pprint; ipdb.set_trace();
+    if arch in required_archs:
+        return True

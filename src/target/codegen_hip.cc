@@ -229,6 +229,8 @@ void CodeGenTileLangHIP::PrintType(DataType t, std::ostream &os) { // NOLINT(*)
     if (!fail)
       return;
   } else if (t.is_float8()) {
+    // NOTE: may have to create own versiok of fnuz, not currently in TVM
+    // bool is_float8_e4m3fn() const { return (code() == DataType::kFloat8_e4m3fn && bits() == 8); }
     if (t.is_float8_e4m3fn()) {
       if (t.is_scalar()) {
         os << "fp8_e4_t";
@@ -946,19 +948,27 @@ void CodeGenTileLangHIP::VisitExpr_(const CallNode *op, std::ostream &os) {
         << "Matrix core only support row major";
     // map for dtype -> float32x4 -> float4
     // TODO: add fp8
+    // NOTE: OCP fp8 format is currently commented out, as no AMD GPUs support it, they only
+    // support FNUZ format: https://rocm.docs.amd.com/projects/HIP/en/docs-6.4.0/reference/low_fp_types.html#supported-devices
     std::unordered_map<std::string, std::string> dtype_map = {
         {"int8", "char"},
         {"int32", "int"},
         {"int8x4", "int32_t"},
         {"int32x4", "int32x4"},
-        {"e4m3_float8", "float8_t"},
+        // {"e4m3_float8", "float8_t"},
+        {"e4m3_fnuz_float8", "float8_t"},
+        {"e5m2_fnuz_float8", "float8_t"},
         {"float16", "half"},
         {"float32", "float"},
         {"float64", "double"},
         {"float16x4", "float16x4"},
         {"bfloat16x4", "bfloat16x4"},
+        {"e4m3_float8x2", "float8x2"},
         {"e4m3_float8x4", "float8x4"},
         {"e4m3_float8x8", "float8x8"},
+        {"e4m3_fnuz_float8x2", "float8x2"},
+        {"e4m3_fnuz_float8x4", "float8x4"},
+        {"e4m3_fnuz_float8x8", "float8x8"},
         {"float32x4", "float32x4"},
         {"float32x16", "float32x16"}};
     std::string call_mfma_code = R"({

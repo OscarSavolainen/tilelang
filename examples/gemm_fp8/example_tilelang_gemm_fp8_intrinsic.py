@@ -9,7 +9,8 @@ from tvm import DataType
 import tilelang.language as T
 from tilelang.intrinsics import get_swizzle_layout
 from tilelang.intrinsics.mma_macro_generator import (
-    TensorCoreIntrinEmitter,)
+    TensorCoreIntrinEmitter,
+)
 from tilelang.transform import simplify_prim_func
 from tilelang.utils.tensor import map_torch_type
 
@@ -54,7 +55,10 @@ def tl_matmul(
 
     micro_size_x = micro_size_y = micro_size_k = 16
 
-    is_float8 = in_dtype in ["e4m3_float8", "e5m2_float8"]
+    is_float8 = in_dtype in [
+        "e4m3_float8",
+        "e5m2_float8",
+    ]
     if out_dtype == "int32" or is_float8:
         micro_size_k = 32
 
@@ -108,11 +112,13 @@ def tl_matmul(
 
     @T.prim_func
     def main(
-            A: T.Tensor(A_shape, in_dtype),
-            B: T.Tensor(B_shape, in_dtype),
-            C: T.Tensor((M, N), out_dtype),
+        A: T.Tensor(A_shape, in_dtype),
+        B: T.Tensor(B_shape, in_dtype),
+        C: T.Tensor((M, N), out_dtype),
     ):
-        with T.Kernel(T.ceildiv(N, block_N), T.ceildiv(M, block_M), threads=threads) as (bx, by):
+        with T.Kernel(
+            T.ceildiv(N, block_N), T.ceildiv(M, block_M), threads=threads
+        ) as (bx, by):
 
             A_shared = T.alloc_shared(A_shared_shape, in_dtype, scope=shared_scope)
             B_shared = T.alloc_shared(B_shared_shape, in_dtype, scope=shared_scope)
@@ -121,10 +127,12 @@ def tl_matmul(
             B_local = T.alloc_local((warp_cols * local_size_b), in_dtype)
             C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
 
-            T.annotate_layout({
-                A_shared: make_swizzle_layout(A_shared),
-                B_shared: make_swizzle_layout(B_shared),
-            })
+            T.annotate_layout(
+                {
+                    A_shared: make_swizzle_layout(A_shared),
+                    B_shared: make_swizzle_layout(B_shared),
+                }
+            )
 
             # Improve L2 Cache
             T.use_swizzle(panel_size=10)
@@ -223,7 +231,6 @@ def assert_tl_matmul_correctness(M, N, K, in_dtype, out_dtype, accum_dtype):
 def test_assert_tl_matmul():
     assert_tl_matmul_correctness(128, 128, 128, "e4m3_float8", "float32", "float32")
     assert_tl_matmul_correctness(128, 128, 128, "e5m2_float8", "float32", "float32")
-
 
 if __name__ == "__main__":
     tilelang.testing.main()

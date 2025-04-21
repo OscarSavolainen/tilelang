@@ -8,6 +8,7 @@ import logging
 import tilelang as tl
 import tilelang.language as T
 from tilelang.autotuner import autotune, jit
+from tilelang.utils.target import check_cuda_availability, check_hip_availability
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -206,7 +207,11 @@ def matmul(M, N, K, with_roller):
         """
         # Use half-precision for input data to reduce memory bandwidth,
         # accumulate in float for better numerical accuracy
-        dtype = "e4m3_float8"
+        if check_cuda_availability():
+            dtype = "e4m3_float8"
+        elif check_hip_availability():
+            dtype = "e4m3_fnuz_float8"
+    
         accum_dtype = "float"
 
         @T.prim_func
