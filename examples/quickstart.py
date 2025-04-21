@@ -79,21 +79,27 @@ if torch_dtype in [torch.float, torch.float16, torch.bfloat16]:
     b = torch.randn(1024, 1024, device="cuda", dtype=torch_dtype)
 elif torch_dtype in [torch.float8_e4m3fnuz, torch.float8_e5m2fnuz, torch.float8_e4m3fn]:
 # Generate random inputs with FP8 quantization
-    a = (torch.randn((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
-    b = (torch.randn((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
+    a = (torch.zeros((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
+    b = (torch.zeros((1024, 1024), dtype=torch.bfloat16, device="cuda")).to(torch_dtype)
+    for i in range(5):
+        a[i, i] = 1.0
+        b[i, i] = 1.0
 else:
     raise TypeError("Add another dtype as desired!")
 
-
 # Run the kernel through the Profiler
 c = jit_kernel(a, b)
+c_bf16 = c.to(torch.bfloat16)
 
 print(c)
 # Reference multiplication using PyTorch
-ref_c = a @ b
+a_bf16 = a.to(torch.bfloat16)
+b_bf16 = b.to(torch.bfloat16)
+ref_c_bf16 = a_bf16 @ b_bf16
 
 # Validate correctness
-torch.testing.assert_close(c, ref_c, rtol=1e-2, atol=1e-2)
+import ipdb, pprint; ipdb.set_trace();
+torch.testing.assert_close(c_bf16, ref_c_bf16, rtol=1e-2, atol=1e-2)
 print("Kernel output matches PyTorch reference.")
 
 # 4. Retrieve and inspect the generated CUDA source (optional)

@@ -65,7 +65,7 @@ cdef class CythonKernelWrapper:
         self.buffer_device_map = buffer_device_map
         return self
 
-    cpdef forward(self, list inputs, int64_t stream = -1):
+    def forward(self, list inputs, int64_t stream = -1):
         # Validate input dimensions and prepare for kernel execution
         cdef int total_params = len(self.params)
         cdef int total_inputs = len(inputs)
